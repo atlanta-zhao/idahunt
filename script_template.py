@@ -8,11 +8,17 @@
 # idahunt.py command line:
 # e.g. idahunt.py --scripts "/absolute/path/to/script_template.py"
 # You can use this as a template to build your own scripts.
-
+from idc import *
 import os
+import idautils
+import time
 
-print("[script_template] I execute in IDA, yay!")
+time.sleep(3)
+(INPUT_PATH,INPUT_FILE) = os.path.split(ida_nalt.get_input_file_path())
+print("file path!!!:" + INPUT_PATH)
+print("file name!!!:" + INPUT_FILE)
+print("[script_template] I execute in IDA, yay!666")
 # It is counter intuitive, but the IDA batch mode will pop the UI after executing the script by
 # default, so this allows us to cleanly exit IDA and avoid the UI to pop-up upon completion
 if "DO_EXIT" in os.environ:
-    idc.qexit(1)
+   idc.qexit(1)

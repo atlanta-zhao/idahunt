@@ -45,7 +45,7 @@ def iglob_hidden(*args, **kwargs):
         glob._ishidden = old_ishidden
 
 def path_to_module_string(p):
-    return p.replace("/", ".").replace("\\", ".")
+    return p.replace("\\", ".").replace("/", ".")
 
 # Automatically detects the architecture for PE files
 def detect_arch_pe_files(filename):
@@ -209,10 +209,10 @@ def do_dir(inputdir, filter, verbose, max_ida, do_file, ida_args=None, script=No
             continue
         f_noext = os.path.splitext(f)[0]
         if filter:
-            module_name = filter.split()[0]
+            module_name = filter.split(" ",1)[0]
             if module_name.endswith(".py"):
                 module_name = module_name[:-3]
-            module_name = path_to_module_string(module_name)
+            module_name = path_to_module_string(module_name)#print(module_name)
             m = __import__(module_name, fromlist=[''])
             res = m.main(f, filter)
             if res == None:
@@ -316,7 +316,7 @@ if __name__ == "__main__":
                         help='Maximum number of instances of IDA to run at a time (default: 10)')
     parser.add_argument('--list-only', dest='list_only', default=False, action="store_true",
                         help='List only what files would be handled without executing IDA')
-    parser.add_argument('--version', dest='ida_version', default="7.5",
+    parser.add_argument('--version', dest='ida_version', default="7.0",
                         help='Override IDA version (e.g. "7.5"). This is used to find the path \
                         of IDA on Windows.')
     args = parser.parse_args()
@@ -352,7 +352,8 @@ if __name__ == "__main__":
         else:
             #IDA32="C:\\Program Files (x86)\\IDA 6.95\\idaq.exe"
             #IDA32="C:\\Program Files\\IDA " + ida_version + "\\ida.exe"
-            IDA32="C:\\Program Files\\IDA Pro " + ida_version + "\\ida.exe"
+            #IDA32="C:\\Program Files\\IDA Pro " + ida_version + "\\ida.exe"
+            IDA32="C:\\Users\\25100\\Desktop\\IDA 7.0\\ida.exe"
             # XXX - Test the file exists here... We shouldn't rely on a version
             ida32_found = True
 

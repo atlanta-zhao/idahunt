@@ -173,14 +173,14 @@ def exec_ida_python_script(ida_executable, infile, logfile, idbfile, verbose, id
     d["DO_EXIT"] = "1"
     if not list_only:
         return subprocess.Popen(cmd, shell, env=d)
-    else:
+    else:                                   
         return True
 
 # Useful if IDB failed to close correctly. Do not use if IDA Pro is still opened!
 def delete_temporary_files(inputdir, list_only=False):
     for f in iglob_hidden("%s/**" % inputdir, recursive=True):
         if f.endswith(".id0") or f.endswith(".id1") or f.endswith(".id2") or \
-           f.endswith(".nam") or f.endswith(".til") or f.endswith(".dmp"):
+           f.endswith(".nam") or f.endswith(".til") or f.endswith(".dmp") or f.endswith(".idb") or f.endswith(".log"):
             logmsg("Deleting %s" % f)
             if not list_only:
                 os.remove(f)
@@ -198,7 +198,7 @@ def do_dir(inputdir, filter, verbose, max_ida, do_file, ida_args=None, script=No
     pids = []
     call_count = 0
     exec_count = 0
-    for f in iglob_hidden("%s/**" % inputdir, recursive=True):
+    for f in iglob_hidden("%s/**" % inputdir, recursive=False):
         if os.path.isdir(f):
             continue
         if f.endswith(".idb") or f.endswith(".i64") or \
@@ -212,7 +212,8 @@ def do_dir(inputdir, filter, verbose, max_ida, do_file, ida_args=None, script=No
             module_name = filter.split(" ",1)[0]
             if module_name.endswith(".py"):
                 module_name = module_name[:-3]
-            module_name = path_to_module_string(module_name)#print(module_name)
+            module_name = path_to_module_string(module_name)
+            #print(module_name)
             m = __import__(module_name, fromlist=[''])
             res = m.main(f, filter)
             if res == None:
@@ -378,7 +379,7 @@ if __name__ == "__main__":
         else:
             #IDA64="C:\\Program Files (x86)\\IDA 6.95\\idaq64.exe"
             #IDA64="C:\\Program Files\\IDA " + ida_version + "\\ida64.exe"
-            IDA64="C:\\Program Files\\IDA Pro " + ida_version + "\\ida64.exe"
+            #IDA32="C:\\Users\\25100\\Desktop\\IDA 7.0\\ida64.exe"
             # XXX - Test the file exists here... We shouldn't rely on a version
             ida64_found = True
 

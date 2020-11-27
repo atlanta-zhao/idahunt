@@ -1,17 +1,9 @@
-from idaapi import *
-import idautils 
-import pandas as pd
-import struct
-import lief
-import pefile
-import random
+import argparse
 import os
-
-ori_op = []
-ori_address = []
-ori_length = []
-args0 = []
-args1 = []
+from idaapi import *
+import idautils
+import pandas as pd
+import pefile
 
 mv_index = 0
 jz_index = 0
@@ -21,16 +13,13 @@ DISPATCH_ADDRESS = 0
 FUNCTIONS_ADDRESS = 0
 
 
-POP_DIC = {'eax':'\x58','ecx':'\x59','ebx':'\x5b','edx':'\x5a','esp':'\x5c','ebp':'\x5d','esi':'\x5e','edi':'\x5f'}
+mv_index = 0
+jz_index = 0
+call5_index = 0
+call6_index = 0
 
-#pop eax   58
-#pop ebx   5b
-#pop ecx   59
-#pop edx   5a
-#pop esp   5c
-#pop ebp   5d
-#pop esi   5e
-#pop edi   5f
+DISPATCH_ADDRESS = 0
+FUNCTIONS_ADDRESS = 0
 
 def instrument_retrieve(origin_op, origin_address):
 
@@ -39,58 +28,52 @@ def instrument_retrieve(origin_op, origin_address):
     global call5_index
     global call6_index
     if origin_op.startswith('call'):
-        if 1 == 1:
-            #return
-            
+        if 1 == 1:        
             op_length=idaapi.decode_insn(origin_address)
-            if op_length  == 5:             
-            #print hex(origin_address)
-            #print index
-                PatchByte(origin_address, 0xe9) #jmp
-                PatchDword(origin_address + 1 ,FUNCTIONS_ADDRESS - origin_address - 5  + 10*call5_index+7*mv_index+31*jz_index+11*call6_index)
-                PatchDword(FUNCTIONS_ADDRESS+10*call5_index+7*mv_index+31*jz_index+6 + 11*call6_index, (idc.Dword(FUNCTIONS_ADDRESS+10*call5_index+7*mv_index+31*jz_index+6+ 11*call6_index)-(FUNCTIONS_ADDRESS+10*call5_index+7*mv_index+31*jz_index+10+ 11*call6_index)))
-                call5_index += 1
+            if op_length  == 5:
+                if origin_address in addr_to_fix:
+                    PatchByte(origin_address, 0xe9) #jmp
+                    PatchDword(origin_address + 1 ,FUNCTIONS_ADDRESS - origin_address - 5  + 10*call5_index+7*mv_index+31*jz_index+11*call6_index)
+                    PatchDword(FUNCTIONS_ADDRESS+10*call5_index+7*mv_index+31*jz_index+6 + 11*call6_index, (idc.Dword(FUNCTIONS_ADDRESS+10*call5_index+7*mv_index+31*jz_index+6+ 11*call6_index)-(FUNCTIONS_ADDRESS+10*call5_index+7*mv_index+31*jz_index+10+ 11*call6_index)))
+                    call5_index += 1
+                else:
+                    call5_index += 1
             if op_length  == 6:
-                PatchByte(origin_address, 0xe9)
-                PatchDword(origin_address + 1 ,FUNCTIONS_ADDRESS - origin_address - 5  + 10*call5_index+7*mv_index+31*jz_index+ 11*call6_index)
-                #PatchByte(origin_address + 5 , random.randint(0,255))# random.randint(0,255)
-                PatchByte(origin_address + 5 , 0x90)
-                call6_index += 1
-            #PatchByte(origin_address + 5 , 0x90)
-            #print FUNCTIONS_ADDRESS - origin_address -5-5  + 30 * ins_index
-            #print FUNCTIONS_ADDRESS
-            #print origin_address
+                if origin_address in addr_to_fix:
+                    PatchByte(origin_address, 0xe9)
+                    PatchDword(origin_address + 1 ,FUNCTIONS_ADDRESS - origin_address - 5  + 10*call5_index+7*mv_index+31*jz_index+ 11*call6_index)
+                    PatchByte(origin_address + 5 , 0x90)
+                    call6_index += 1
+                else:
+                    call6_index += 1
+
     if origin_op.startswith('mov'):
         if idc.GetOpType(origin_address, 0) == 1 and idc.GetOpType(origin_address, 1) == 5:
             op_length=idaapi.decode_insn(origin_address)
-            if op_length != 5: return
-        
-            print hex(origin_address)
-            #print index
-            PatchByte(origin_address, 0xe8) # call
-            PatchDword(origin_address + 1, DISPATCH_ADDRESS - origin_address - 5)
-            #PatchDword(origin_address + 1 ,FUNCTIONS_ADDRESS - origin_address - 5  + 10*call5_index+7*mv_index+31*jz_index+ 11*call6_index)
-            mv_index += 1
-            #print FUNCTIONS_ADDRESS - origin_address - 5  + 10*call_index+7*mv_index+31*jz_index
-            #print FUNCTIONS_ADDRESS
-            #print origin_address
-            #ins_index += 1
-            #print hex(origin_address)
+            if op_length != 5: 
+                return
+
+            if origin_address in addr_to_fix:
+                print hex(origin_address)
+                PatchByte(origin_address, 0xe8) # call
+                PatchDword(origin_address + 1, DISPATCH_ADDRESS - origin_address - 5)
+                mv_index += 1
+            else:
+                mv_index += 1
     if origin_op.startswith('jz'):
-        #return
         if 1 == 1:
             op_length=idaapi.decode_insn(origin_address)
-            if op_length != 6: return
+            if op_length != 6:
+                return
             
-            print hex(origin_address)
-            #print index
-            PatchByte(origin_address, 0xe8)
-            PatchDword(origin_address + 1, DISPATCH_ADDRESS - origin_address - 5)
-            #PatchDword(origin_address + 1 ,FUNCTIONS_ADDRESS - origin_address - 5  + 10*call5_index+7*mv_index+31*jz_index+ 11*call6_index)
-            #PatchByte(origin_address + 5 , grandom.randint(0,255))
-            PatchByte(origin_address + 5 , 0x90)
-            jz_index += 1
-
+            if origin_address in addr_to_fix:
+                print hex(origin_address)
+                PatchByte(origin_address, 0xe8)
+                PatchDword(origin_address + 1, DISPATCH_ADDRESS - origin_address - 5)
+                PatchByte(origin_address + 5 , 0x90)
+                jz_index += 1
+            else:
+                jz_index += 1
 
 def scan_instrument():
     text_start = text_end = 0
@@ -101,17 +84,12 @@ def scan_instrument():
     for func in idautils.Functions():
         start_address = func
         end_address = idc.FindFuncEnd(func)
-        #print hex(start_address)
         for each_step in idautils.Heads(start_address, end_address):
-            #print hex(each_step)
             op = idc.GetDisasm(each_step)
-            #instrument(op,each_step)
             if each_step >= text_start and each_step <text_end:
                 instrument_retrieve(op, each_step)
-            #print op
 
 def find_changed_bytes():
-
     changed_bytes = list()
 
     for seg_start in Segments():
@@ -136,8 +114,9 @@ def patch_file(data, changed_bytes):
         
         if data[ file_offset ] == original_char:
             data[ file_offset ] = char
-    
-    patched_file = 'new_' + origin_INPUT_PE
+
+    os.system("mkdir "+""+origin_INPUT_PE+"\\EXE")
+    patched_file = origin_INPUT_PE+"\\EXE\\"+ADDR_TO_FIX_FILE_NAME+".exe"
     if patched_file:
         with file(patched_file, 'wb') as f:
             f.write( ''.join( data ) )
@@ -163,19 +142,30 @@ def generate_new_exe():
         
         else:
             print 'No valid file to patch provided'
-
     else:
         print 'No changes to patch'
+
 if __name__ == '__main__':
-	#need IDA
-    #create_pe()
-    #need IDA
-    #object INPUT_PE + ".crafted" #input_file
     idaapi.autoWait()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--fixfile',dest='fixfile',default='0',help='input address-to-fix file name')
+    args = parser.parse_args()
+    print args.fixfile
+
     (INPUT_PATH,INPUT_FILE) = os.path.split(ida_nalt.get_input_file_path())#
-    #print INPUT_FILE
     origin_INPUT_PE = INPUT_FILE.split('.')[0]+'.'+INPUT_FILE.split('.')[1]
-    #INPUT_FILE = 'cmd.exe.crafted.call'
+
+    #ADDR_TO_FIX_FILE_NAME = args.fixfile
+    for root,dirs,files in os.walk(origin_INPUT_PE+"\\"):
+        ADDR_TO_FIX_FILE_NAME = str(files[0])
+        print ADDR_TO_FIX_FILE_NAME
+        break
+    
+    #ADDR_TO_FIX_FILE_NAME = '10'
+    df_addr_to_fix = pd.read_csv(origin_INPUT_PE+"\\"+ADDR_TO_FIX_FILE_NAME,index_col = 0)
+    addr_to_fix = df_addr_to_fix['address'].tolist()
+    os.remove(origin_INPUT_PE+"\\"+ ADDR_TO_FIX_FILE_NAME)
+    
     if DISPATCH_ADDRESS == 0:
         tmp = open('..\\' + origin_INPUT_PE + '_section_address','r')
         file_tmp = pefile.PE(INPUT_FILE)
@@ -184,15 +174,12 @@ if __name__ == '__main__':
         DISPATCH_ADDRESS = length + file_tmp.NT_HEADERS.OPTIONAL_HEADER.ImageBase # 0x400000 base loading address #int
         FUNCTIONS_ADDRESS = DISPATCH_ADDRESS + offset  #int
         print DISPATCH_ADDRESS, FUNCTIONS_ADDRESS
+
     scan_instrument()
 
-    #file_my1 = open("1.exe","w")
     print '---- Running IDA file patching script  ----'
     generate_new_exe()
     print '---- Script finished ----'
 
     if "DO_EXIT" in os.environ:
         idc.qexit(1)
-
-
-

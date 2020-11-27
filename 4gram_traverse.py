@@ -1,37 +1,61 @@
 # -*- coding = utf-8 -*-
 from idaapi import *
-import idautils 
-#import pandas as pd
+import idautils
 import struct
 import lief
 import pefile
 import os
 import idc
+import random
+import pandas as pd
 
 
-ori_op = []         #origin opcode (string)
-ori_address = []    #origin address
-ori_length = []     #opcode length
-                    #call     | # mov         |#jz
-args0 = []          #EIP      | #operand1     |no jmp next address
-args1 = []          #call dest address  | #operand2     |jmp-to address
-args2 = []          #save type : mv  jz  call
-ins_index = 0
+ori_op = []
+ori_address = []
+ori_length = []
+
+args0 = []
+args1 = []
+args2 = []
+
 NEW_SECTION_ADDRESS = 0
 (INPUT_PATH,INPUT_PE) = os.path.split(ida_nalt.get_input_file_path())#
-#INPUT_PE = 'cmd.exe'#idc.GetInputFilePath() #'test.exe'
-
 
 POP_DIC = {'eax':'\x58','ecx':'\x59','ebx':'\x5b','edx':'\x5a','esp':'\x5c','ebp':'\x5d','esi':'\x5e','edi':'\x5f'}
 
-#pop eax   58
-#pop ebx   5b
-#pop ecx   59
-#pop edx   5a
-#pop esp   5c
-#pop ebp   5d
-#pop esi   5e
-#pop edi   5f
+'''
+#opcode_all = []
+#"mov push pop mov" -> "mov mov"
+xxxxxxxx00 = []
+xxxxxxxx01 = []
+xxxxxxxx10 = []
+xxxxxxxx11 = []
+#"mov mov push xor" -> "mov mov xor"
+xxxxx000xx = []
+xxxxx001xx = []
+xxxxx010xx = []
+xxxxx011xx = []
+xxxxx100xx = []
+xxxxx101xx = []
+xxxxx110xx = []
+xxxxx111xx = []
+#"mov add mov mov" -> "mov mov mov"
+xx000xxxxx = []
+xx001xxxxx = []
+xx010xxxxx = []
+xx011xxxxx = []
+xx100xxxxx = []
+xx101xxxxx = []
+xx110xxxxx = []
+xx111xxxxx = []
+#"mov rep" -> "mov"
+x0xxxxxxxx = []
+x1xxxxxxxx = []
+#"push call pop" -> "call"
+_0xxxxxxxxx = []
+_1xxxxxxxxx = []
+'''
+addr_to_fix = []
 
 def insert_section(length,data,len_funs):
     global NEW_SECTION_ADDRESS
@@ -39,9 +63,9 @@ def insert_section(length,data,len_funs):
     pe = pefile.PE(INPUT_PE)
     section = lief.PE.Section('.test')
     section.virtual_address = (((pe.sections[-1].VirtualAddress + (pe.sections[-1].Misc_VirtualSize)-1)/0x1000+1)*0x1000)
-    
+
     NEW_SECTION_ADDRESS = section.virtual_address
-    tmp = open(INPUT_PE+"_section_address",'w')
+    tmp = open(INPUT_PE + "_section_address",'w')
     tmp.write(str(NEW_SECTION_ADDRESS))
     tmp.write('\n')
     tmp.write(str(length-len_funs))
@@ -50,18 +74,18 @@ def insert_section(length,data,len_funs):
 
     section.virtual_size = section.size = length
     section.offset = (((pe.sections[-1].PointerToRawData + (pe.sections[-1].SizeOfRawData)-1)/0x200+1)*0x200)
-    section.characteristics = 0x60000020    
+    section.characteristics = 0x60000020
     insert_data = []
     for each in data:
-        insert_data.append(ord(each))
+        insert_data.append(ord(each))       
     section.content = insert_data
+
     #set random address closed
-    bin.optional_header.dll_characteristics =  bin.optional_header.dll_characteristics & 0xffbf  
+    bin.optional_header.dll_characteristics =  bin.optional_header.dll_characteristics & 0xffbf 
 
     bin.add_section(section)
     bin.write("crafted\\"+ INPUT_PE + ".crafted.call")
 
-    
 def build_section_data(x,y,flag):
     '''
     push = '\x68' 
@@ -75,28 +99,21 @@ def build_section_data(x,y,flag):
     return push+tmp+pop+retn    
     '''
     if flag == 'call5':
-    #print "x",x
-    #print "y",y
         ins1 = '\x68' #push
         ret = struct.pack("I", x)
         ins2 = '\xe9' #jmp
         target = struct.pack("I", y)
         return ins1+ret+ins2+target
     if flag == 'call6':
-    #print "x",x
-    #print "y",y
         ins1 = '\x68'
         ret = struct.pack("I", x)
         ins2 = '\xff\x25' # a type of jmp
         target = struct.pack("I", y)
         return ins1+ret+ins2+target
     if flag == 'mov':
-        push = '\x68' 
-        #print args1   
+        push = '\x68'    
         tmp = struct.pack("I", y)
-        #print args1,'pack:',tmp
         pop = POP_DIC[x]
-        #print args0,pop
         retn = '\xc3'
         return push+tmp+pop+retn    
 
@@ -119,56 +136,34 @@ def build_section_data(x,y,flag):
         ins15 = "\xc3"
         return ins1+ins2+ins3+ins4+ins5+ins6+ins7+ins8+ins9+ins10+ins11+ins12+ins13+ins14+ins15
 
-    
-  
-    #return ins1+ins2+ins3+ins4+ins5+ins6+ins7+ins8+ins9+ins10+ins11+ins12+ins13+ins14+ins15
-def instrument(origin_op, origin_address):
+def instrument(origin_op,origin_address):
     if origin_op.startswith('call'):
-    	#return
-        #if idc.GetOpType(origin_address, 0) == 1 and idc.GetOpType(origin_address, 1) == 5:
         if 1==1:
-        	#print hex(origin_address)
             op_length=idaapi.decode_insn(origin_address)
-            #print hex(origin_address)
-            #return
             if op_length == 6 : 
-                #print hex(origin_address)
-                #return
                 ori_op.append(origin_op)
                 ori_address.append(origin_address)
                 args0.append(origin_address + 6)
-                #print origin_address + 5
                 jump_add = (idc.Dword(origin_address+2))
                 args1.append(jump_add)
-                #print jump_add
-                #print "--------"
                 print("ori_address:",hex(origin_address),"call6")
                 args2.append('call6')
 
-                #args1.append(int(idc.Dword(origin_address+1)))
-                #call address
             if op_length == 5 : 
-                #print hex(origin_address)
-                #return
                 ori_op.append(origin_op)
                 ori_address.append(origin_address)
                 args0.append(origin_address + 5)
-                #print origin_address + 5
                 jump_add = (idc.Dword(origin_address+1) + 5 + origin_address) & 0xffffffff
                 args1.append(jump_add)
-                #print jump_add
-                #print "--------"
                 print("ori_address:",hex(origin_address),"call5")
                 args2.append('call5')
 
-                #args1.append(int(idc.Dword(origin_address+1)))
-                #call address
     if origin_op.startswith('mov'):
         if idc.GetOpType(origin_address, 0) == 1 and idc.GetOpType(origin_address, 1) == 5:
 
-        	#print hex(origin_address)
             op_length=idaapi.decode_insn(origin_address)
-            if op_length != 5: return
+            if op_length != 5: 
+                return
             ori_op.append(origin_op)
             ori_address.append(origin_address)
             ori_length.append(op_length)
@@ -178,27 +173,18 @@ def instrument(origin_op, origin_address):
             print("ori_address:",hex(origin_address),"mov")
             #call address
     if origin_op.startswith('jz'):
-    	#sreturn
-        #if idc.GetOpType(origin_address, 0) == 1 and idc.GetOpType(origin_address, 1) == 5:
         if 1==1:
-        	#print hex(origin_address)
             op_length=idaapi.decode_insn(origin_address)
-            #print hex(origin_address)
-            #return
-            if op_length != 6: return
-            #print hex(origin_address)
-            #return
+            if op_length != 6: 
+                return
+
             ori_op.append(origin_op)
             ori_address.append(origin_address)
             args0.append(origin_address + 6)
-            #print origin_address + 6
             jump_add = (idc.Dword(origin_address+2) + 6 + origin_address)&0xffffffff
             args1.append(jump_add)
-            #print jump_add
-            #print "--------"
             args2.append('jz')
             print("ori_address:",hex(origin_address),"jz")
-
 
 def add_dispatch_function(ori_address, offsets):
     '''
@@ -261,23 +247,88 @@ def add_dispatch_function(ori_address, offsets):
     ins6 = "\x8D\x84\x06" + struct.pack("I", off_funs)
     return ins1+ins2+tab+ins3+ins4+ins5+ins6+ins7
 
-
 def create_pe():
-
     text_start = text_end = 0
     for seg in Segments():
-        if idc.SegName(seg)==".text":
-            text_start=idc.SegStart(seg)
-            text_end=idc.SegEnd(seg)
+        if idc.SegName(seg) == ".text":
+            text_start = idc.SegStart(seg)
+            text_end = idc.SegEnd(seg)
     for func in idautils.Functions():
+        #
+        fourG_1 = ''
+        fourG_2 = ''
+        fourG_3 = ''
+        fourG_4 = ''
+        fourG_1_addr = 0
+        fourG_2_addr = 0
+        fourG_3_addr = 0
+        fourG_4_addr = 0
+
         start_address = func
         end_address = idc.FindFuncEnd(func)
-        #print hex(start_address)
-        for each_step in idautils.Heads(start_address, end_address):
-            #print hex(each_step)
+        for each_step in idautils.Heads(start_address,end_address):
+            opcode = idc.GetMnem(each_step)
+            #traverse 4 Gram
+            fourG_1 = fourG_2
+            fourG_1_addr = fourG_2_addr
+            fourG_2 = fourG_3
+            fourG_2_addr = fourG_3_addr
+            fourG_3 = fourG_4
+            fourG_3_addr = fourG_4_addr
+            fourG_4 = opcode
+            fourG_4_addr = each_step
+
+            if fourG_1 == 'mov' and fourG_2 == 'push' and fourG_3 == 'pop' and fourG_4 == 'mov':
+                print "mov push pop mov","0x%x" % fourG_1_addr , idc.GetDisasm(fourG_1_addr)
+                addr_to_fix.append(['mov push pop mov-mov1',fourG_1_addr])
+                addr_to_fix.append(['mov push pop mov-mov2',fourG_4_addr])
+            if fourG_1 == 'mov' and fourG_2 == 'mov' and fourG_3 == 'push' and fourG_4 == 'xor':
+                print "mov mov push xor","0x%x" % fourG_1_addr , idc.GetDisasm(fourG_1_addr)
+                addr_to_fix.append(['mov mov push xor-mov1',fourG_1_addr])
+                addr_to_fix.append(['mov mov push xor-mov2',fourG_2_addr])
+                addr_to_fix.append(['mov mov push xor-xor1',fourG_4_addr])
+            if fourG_1 == 'mov' and fourG_2 == 'add' and fourG_3 == 'mov' and fourG_4 == 'mov':
+                print "mov add mov mov","0x%x" % fourG_1_addr , idc.GetDisasm(fourG_1_addr)
+                addr_to_fix.append(['mov add mov mov-mov1',fourG_1_addr])
+                addr_to_fix.append(['mov add mov mov-mov2',fourG_3_addr])
+                addr_to_fix.append(['mov add mov mov-mov3',fourG_4_addr])
+            if fourG_1 == 'mov' and fourG_2 == 'rep':
+                print "mov rep","0x%x" % fourG_1_addr , idc.GetDisasm(fourG_1_addr)  
+                addr_to_fix.append(['mov rep-mov1',fourG_1_addr])
+            if fourG_1 == 'push' and fourG_2 == 'call' and fourG_3 == 'pop':
+                print "push call pop","0x%x" % fourG_1_addr , idc.GetDisasm(fourG_1_addr)
+                addr_to_fix.append(['push call pop-call1',fourG_2_addr])
+
             op = idc.GetDisasm(each_step)
-            if each_step >= text_start and each_step <text_end:
-                instrument(op,each_step)
+            if each_step >= text_start and each_step < text_end:
+                instrument(op,each_step) 
+    
+    
+    #print "3 of 4",3*len(addr_to_fix)/4
+    name = ['operation','address']
+    os.system("mkdir "+"crafted\\"+INPUT_PE)
+    for i in range(0,1024):
+        tmp_list = []
+        tmp_list = random.sample(addr_to_fix,3*len(addr_to_fix)/4)
+
+        df_tmp = pd.DataFrame(columns = name,data = tmp_list)
+        df_tmp.to_csv("crafted\\"+INPUT_PE+"\\"+str(i),encoding = 'gbk')
+        '''
+        tmp2 = open("crafted\\"+INPUT_PE+"\\"+str(i),'w')
+        for each in tmp_list:
+            tmp2.write(str(each[0])+','+str(each[1]))
+            tmp2.write('\n')
+        tmp2.close()
+        '''
+    df_tmp1 = pd.DataFrame(columns = name,data = addr_to_fix)
+    df_tmp1.to_csv("crafted\\" + INPUT_PE+"\\" + INPUT_PE +"_addr_to_fix",encoding = 'gbk')
+    '''
+    tmp1 = open("crafted\\" + INPUT_PE + "_addr_to_fix",'w')
+    for each in addr_to_fix:
+        tmp1.write(str(each[0])+','+str(each[1]))
+        tmp1.write('\n')
+    tmp1.close()
+    '''
 
     section_data = ''
     offsets = []
@@ -289,17 +340,13 @@ def create_pe():
     len_funs = len(section_data)
     section_data = add_dispatch_function(ori_address, offsets) + section_data
 
-    section_file = open( INPUT_PE + '_newSectionData','wb')
+    section_file = open(INPUT_PE + '_newSectionData','wb')
     section_file.write(section_data)
     section_file.close()
     section_size = len(section_data)
     insert_section(len(section_data),section_data,len_funs)
-
-    #ref = pd.DataFrame({'addr':ori_address,"ins":ori_op,'args0':args0,'args1':args1,'length':ori_length})
-    #ref.to_csv('ref.txt',index=0)
-
-if __name__ == '__main__':
-	#need IDA
+    #print opcode_all
+if __name__ == "__main__":
     idaapi.autoWait()
     create_pe()
     if "DO_EXIT" in os.environ:

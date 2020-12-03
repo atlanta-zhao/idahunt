@@ -175,6 +175,8 @@ if __name__ == '__main__':
     (INPUT_PATH,INPUT_FILE) = os.path.split(ida_nalt.get_input_file_path())#
     #print INPUT_FILE
     origin_INPUT_PE = INPUT_FILE.split('.')[0]+'.'+INPUT_FILE.split('.')[1]
+    #origin_INPUT_PE = INPUT_FILE[:-13]
+    #print origin_INPUT_PE
     #INPUT_FILE = 'cmd.exe.crafted.call'
     if DISPATCH_ADDRESS == 0:
         tmp = open('..\\' + origin_INPUT_PE + '_section_address','r')
